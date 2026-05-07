@@ -7,34 +7,84 @@ from cocotb.triggers import ClockCycles
 
 
 @cocotb.test()
-async def test_project(dut):
-    dut._log.info("Start")
+async def test_baby_cpu(dut):
+    dut._log.info("Starting TinyTapeout Baby CPU Test")
 
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
+    # 10 ns clock period = 100 MHz
+    clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    # Reset
-    dut._log.info("Reset")
+    # -----------------------------
+    # Reset sequence
+    # -----------------------------
+    dut._log.info("Applying reset")
+
     dut.ena.value = 1
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
+
+    await ClockCycles(dut.clk, 5)
+
     dut.rst_n.value = 1
 
-    dut._log.info("Test project behavior")
-
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
-
-    # Wait for one clock cycle to see the output values
     await ClockCycles(dut.clk, 1)
 
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
+    # -----------------------------
+    # Test 1
+    # ui_in -> acc -> uo_out
+    # -----------------------------
+    test_value_1 = 0xAA
 
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+    dut._log.info(f"Testing ui_in = 0x{test_value_1:02X}")
+
+    dut.ui_in.value = test_value_1
+
+    # Program flow:
+    # Cycle 1 -> INP
+    # Cycle 2 -> OUT
+    # Cycle 3 -> OUTIO
+    # Cycle 4 -> JMP
+    await ClockCycles(dut.clk, 4)
+
+    assert dut.uo_out.value.integer == test_value_1, \
+        f"Expected uo_out = 0x{test_value_1:02X}, got 0x{dut.uo_out.value.integer:02X}"
+
+    dut._log.info("Test 1 passed")
+
+    # -----------------------------
+    # Test 2
+    # Another input pattern
+    # -----------------------------
+    test_value_2 = 0x3C
+
+    dut._log.info(f"Testing ui_in = 0x{test_value_2:02X}")
+
+    dut.ui_in.value = test_value_2
+
+    await ClockCycles(dut.clk, 4)
+
+    assert dut.uo_out.value.integer == test_value_2, \
+        f"Expected uo_out = 0x{test_value_2:02X}, got 0x{dut.uo_out.value.integer:02X}"
+
+    dut._log.info("Test 2 passed")
+
+    # -----------------------------
+    # Test OUTIO pulse behavior
+    # -----------------------------
+    dut._log.info("Checking OUTIO behavior")
+
+    dut.ui_in.value = 0xF0
+
+    # Wait until OUTIO instruction executes
+    await ClockCycles(dut.clk, 3)
+
+    assert dut.uio_out.value.integer == 0xF0, \
+        "uio_out did not match expected value"
+
+    assert dut.uio_oe.value.integer == 0xFF, \
+        "uio_oe should be enabled during OUTIO"
+
+    dut._log.info("OUTIO behavior verified")
+
+    dut._log.info("All tests passed successfully")
