@@ -1,7 +1,7 @@
 # Tiny Tapeout project information
 project:
   title:        "Baby CPU"
-  author:       "Ripunjay Singh, Muzaffar Asim Ansari, Alok Kumar Kamal"
+  author:       "Ripunjay Singh, Alok Kumar Kamal"
   discord:      "ripunjaysingh_38609" 
   description:  "A small 8-bit CPU with 16-byte ROM/RAM and simple accumulator architecture"
   language:     "Verilog"
