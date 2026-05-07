@@ -39,7 +39,7 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module tt_um_minimal_cpu (
+module tt_um_baby_cpu (
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
     input  wire [7:0] uio_in,
