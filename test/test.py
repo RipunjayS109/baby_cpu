@@ -9,7 +9,7 @@ from cocotb.triggers import ClockCycles
 @cocotb.test()
 async def test_baby_cpu(dut):
 
-    dut._log.info("Starting Baby CPU Test")
+    dut._log.info("Start Baby CPU Test")
 
     # 10 ns clock period = 100 MHz
     clock = Clock(dut.clk, 10, unit="ns")
@@ -27,13 +27,13 @@ async def test_baby_cpu(dut):
 
     dut.rst_n.value = 1
 
-    dut._log.info("Reset released")
+    await ClockCycles(dut.clk, 1)
 
-    # Allow CPU to begin execution
-    await ClockCycles(dut.clk, 2)
+    # After reset output should be zero
+    assert int(dut.uo_out.value) == 0
 
     # -------------------------------------------------
-    # Test 1
+    # Test Pattern 1
     # -------------------------------------------------
     test_val1 = 0xAA
 
@@ -41,21 +41,37 @@ async def test_baby_cpu(dut):
 
     dut.ui_in.value = test_val1
 
-    # Wait for:
-    # INP -> OUT -> OUTIO -> JMP
-    await ClockCycles(dut.clk, 5)
+    # Cycle 1 -> INP
+    # Cycle 2 -> OUT
+    await ClockCycles(dut.clk, 2)
 
-    observed1 = dut.uo_out.value.to_unsigned()
+    out1 = int(dut.uo_out.value)
 
-    dut._log.info(f"uo_out = 0x{observed1:02X}")
+    dut._log.info(f"uo_out = 0x{out1:02X}")
 
-    assert observed1 == test_val1, \
-        f"Expected 0x{test_val1:02X}, got 0x{observed1:02X}"
-
-    dut._log.info("Test 1 passed")
+    assert out1 == test_val1, \
+        f"Expected 0x{test_val1:02X}, got 0x{out1:02X}"
 
     # -------------------------------------------------
-    # Test 2
+    # OUTIO verification
+    # -------------------------------------------------
+    # Next cycle executes OUTIO
+    await ClockCycles(dut.clk, 1)
+
+    io_out = int(dut.uio_out.value)
+    io_oe = int(dut.uio_oe.value)
+
+    dut._log.info(f"uio_out = 0x{io_out:02X}")
+    dut._log.info(f"uio_oe  = 0x{io_oe:02X}")
+
+    assert io_out == test_val1, \
+        f"Expected uio_out = 0x{test_val1:02X}, got 0x{io_out:02X}"
+
+    assert io_oe == 0xFF, \
+        f"Expected uio_oe = 0xFF, got 0x{io_oe:02X}"
+
+    # -------------------------------------------------
+    # Test Pattern 2
     # -------------------------------------------------
     test_val2 = 0x3C
 
@@ -63,41 +79,14 @@ async def test_baby_cpu(dut):
 
     dut.ui_in.value = test_val2
 
-    await ClockCycles(dut.clk, 5)
-
-    observed2 = dut.uo_out.value.to_unsigned()
-
-    dut._log.info(f"uo_out = 0x{observed2:02X}")
-
-    assert observed2 == test_val2, \
-        f"Expected 0x{test_val2:02X}, got 0x{observed2:02X}"
-
-    dut._log.info("Test 2 passed")
-
-    # -------------------------------------------------
-    # Optional OUTIO pulse test
-    # -------------------------------------------------
-    test_val3 = 0xF0
-
-    dut._log.info(f"Applying ui_in = 0x{test_val3:02X} for OUTIO test")
-
-    dut.ui_in.value = test_val3
-
-    # Align exactly with OUTIO cycle
+    # Wait through JMP + INP + OUT
     await ClockCycles(dut.clk, 3)
 
-    io_out = dut.uio_out.value.to_unsigned()
-    io_oe = dut.uio_oe.value.to_unsigned()
+    out2 = int(dut.uo_out.value)
 
-    dut._log.info(f"uio_out = 0x{io_out:02X}")
-    dut._log.info(f"uio_oe  = 0x{io_oe:02X}")
+    dut._log.info(f"uo_out = 0x{out2:02X}")
 
-    assert io_out == test_val3, \
-        f"Expected uio_out = 0x{test_val3:02X}, got 0x{io_out:02X}"
-
-    assert io_oe == 0xFF, \
-        f"Expected uio_oe = 0xFF, got 0x{io_oe:02X}"
-
-    dut._log.info("OUTIO test passed")
+    assert out2 == test_val2, \
+        f"Expected 0x{test_val2:02X}, got 0x{out2:02X}"
 
     dut._log.info("All tests passed successfully")
